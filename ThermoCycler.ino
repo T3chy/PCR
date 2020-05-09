@@ -73,10 +73,10 @@ void setup() {
   Serial.println(ip);
   Serial.println("");
       display.clearDisplay();
-      display.setTextSize(1);
+      display.setTextSize(2);
   display.setCursor(0,0);
   display.println("go to ");
-        display.setTextSize(1.5);
+        display.setTextSize(1);
   display.println(String(ip[0]) + "." +  String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]));
         display.setTextSize(1);
   display.println("to get started!");
