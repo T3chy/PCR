@@ -6,17 +6,38 @@
 #define fanPin 10
 #define heatPin 11
 #define caseFan 12
-#include <SPI.h>
 #include <WiFiNINA.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "arduino_secrets.h" 
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 char ssid[] = SECRET_SSID;      
 char pass[] = SECRET_PASS;   
 int keyIndex = 0;  
 int status = WL_IDLE_STATUS;
+int cycles = 20;
 WiFiServer server(80);
 void setup() {
-  // put your setup code here, to run once:
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+    Serial.println(F("SSD1306 allocation failed"));
+    Serial.println("fuck");
+    for(;;);
+    } // Don't proceed, loop forever
+      display.display();
+      display.clearDisplay();
+      display.setTextSize(2); 
+      display.setTextColor(SSD1306_WHITE);
+       display.cp437(true);         
+  display.write("Welcome toElam's PCRMachine!  ");
+  display.println("booting...");
+  display.display();
   pinMode(fanPin, OUTPUT);
   pinMode(heatPin, OUTPUT);
   pinMode(caseFan, OUTPUT);
@@ -51,7 +72,17 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.println(ip);
   Serial.println("");
+      display.clearDisplay();
+      display.setTextSize(1);
+  display.setCursor(0,0);
+  display.println("go to ");
+        display.setTextSize(1.5);
+  display.println(String(ip[0]) + "." +  String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]));
+        display.setTextSize(1);
+  display.println("to get started!");
+  display.display();
 }
+
 boolean holdConstantTemp(long duration, double idealTemp){
   Serial.println("");
   Serial.print("holding "); 
@@ -156,7 +187,9 @@ void loop() {
         if (currentLine.endsWith("GET /start")) {
                   digitalWrite(caseFan, HIGH);
           holdConstantTemp(120000,94.0); // inital denaturing
-          for (int i = 0; i < 21; i++){
+          for (int i = 0; i <= cycles; i++){
+            Serial.print("cycle " + String(i) + " of " + String(cycles));
+            client.print("cycle " + String(i) + " of " + String(cycles));
             holdConstantTemp(15000, 94.0); // denaturing
             holdConstantTemp(20000, 55.0);
             holdConstantTemp(60000,72.0);// 1 min per kb, setting to 1 min for now
