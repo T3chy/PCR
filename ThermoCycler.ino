@@ -3,13 +3,15 @@
 #define MAXDO   3
 #define MAXCS   4
 #define MAXCLK  5
-#define fanPin 6
-#define heatPin 7
+#define fanPin 10
+#define heatPin 11
+#define caseFan 12
 #include <SPI.h>
 #include <WiFiNINA.h>
+#include "arduino_secrets.h" 
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
-char ssid[] = "hi";        // your network SSID (name)
-char pass[] = "test";    // your network password (use for WPA, or use as key for WEP)
+char ssid[] = SECRET_SSID;      
+char pass[] = SECRET_PASS;   
 int keyIndex = 0;  
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
@@ -17,6 +19,7 @@ void setup() {
   // put your setup code here, to run once:
   pinMode(fanPin, OUTPUT);
   pinMode(heatPin, OUTPUT);
+  pinMode(caseFan, OUTPUT);
   delay(500);
  Serial.begin(9600);      // initialize serial communication
   pinMode(9, OUTPUT);      // set the LED pin mode
@@ -44,13 +47,26 @@ void setup() {
     delay(10000);
   }
   server.begin();                           // start the web server on port 80                 // you're connected now, so print out the status
+ IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+  Serial.println("");
 }
 boolean holdConstantTemp(long duration, double idealTemp){
+  Serial.println("");
+  Serial.print("holding "); 
+  Serial.print(idealTemp);
+  Serial.print(" for   ");  
+  Serial.print(duration);
     double currentTemp;
    unsigned long startTime = millis();
   long timeElapsed = millis() - startTime;
+    currentTemp = thermocouple.readCelsius();
   while (timeElapsed < duration){
-  currentTemp = thermocouple.readCelsius();
+      double tmp = thermocouple.readCelsius();
+    if (!isnan(tmp)){
+          currentTemp = thermocouple.readCelsius();
+    }
   if (currentTemp < idealTemp){
     digitalWrite(heatPin, HIGH);
     delay(90);
@@ -66,15 +82,33 @@ boolean holdConstantTemp(long duration, double idealTemp){
 }
   return true;
 }
-boolean reachTemp(double desiredTemp){ // finish with cooling too 
+boolean reachTemp(double desiredTemp){ // finish with cooling too
+  Serial.println("reaching");
+  Serial.print(desiredTemp);
   double currentTemp = thermocouple.readCelsius();
   while(desiredTemp > currentTemp){
-     currentTemp = thermocouple.readCelsius();
+         double tmp = thermocouple.readCelsius();
+    if (!isnan(tmp)){
+          currentTemp = thermocouple.readCelsius();
+    }
      digitalWrite(heatPin, HIGH);
+     Serial.println("heating on");
+     Serial.print("temp=");
+     Serial.println(currentTemp);
+          Serial.println("");
+     delay(1000);
   }   
   while(desiredTemp < currentTemp){
-    currentTemp = thermocouple.readCelsius();
+    double tmp = thermocouple.readCelsius();
+    if (!isnan(tmp)){
+          currentTemp = thermocouple.readCelsius();
+    }
+
     digitalWrite(fanPin, HIGH);
+     Serial.println("fan on");
+     Serial.print("temp=");
+     Serial.println(currentTemp);
+          Serial.println("");
   }
   digitalWrite(heatPin,LOW);
   digitalWrite(fanPin,LOW);
@@ -111,13 +145,16 @@ void loop() {
         }
 
         // Check to see if client request was warm or start
+
         if (currentLine.endsWith("GET /warm")){
+                  digitalWrite(caseFan, HIGH);
           reachTemp(94.0);
           while(!currentLine.endsWith("GET /start")){
               holdConstantTemp(30000, 94.0);  
           }
         }
         if (currentLine.endsWith("GET /start")) {
+                  digitalWrite(caseFan, HIGH);
           holdConstantTemp(120000,94.0); // inital denaturing
           for (int i = 0; i < 21; i++){
             holdConstantTemp(15000, 94.0); // denaturing
